@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ガチャ検索（商品名 → 棚番/向き/階層）</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:900px;margin:24px auto;padding:0 16px}
+  input[type="search"], input[type="url"]{flex:1;min-width:220px;padding:10px 12px;border:1px solid #ccc;border-radius:8px;font-size:16px}
+  .pill{padding:8px 12px;border:1px solid #ddd;border-radius:999px;background:#fff;font-size:14px;cursor:pointer;transition:.2s}
+  .pill:disabled{opacity:.5;cursor:not-allowed}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .hint{color:#666;font-size:13px;margin-top:8px}
+  .count{display:inline-block;padding:2px 8px;border:1px solid #ddd;border-radius:999px;font-size:12px}
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th,td{border-bottom:1px solid #eee;padding:10px;text-align:left;font-size:15px}
+  th{position:sticky;top:0;background:#fff;z-index:1}
+  mark{background:#ffec99}
+  .status{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px}
+  .status .dot{width:10px;height:10px;border-radius:50%}
+  .status.load .dot{background:#1f6feb;animation:pulse 1s infinite}
+  .status.ok   .dot{background:#2da44e}
+  .status.err  .dot{background:#d1242f}
+  .toast{position:fixed;right:16px;bottom:16px;background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;transform:translateY(8px);transition:.25s}
+  .toast.show{opacity:1;transform:translateY(0)}
+  @keyframes pulse{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
+</style>
+<body>
+<h1>ガチャ検索（商品名 → 棚番 / 向き / 階層）</h1>
+
+<!-- 1) 公開CSVのURL（?csv=... 付きリンクで自動設定も可） -->
+<div class="row">
+  <input id="csvUrl" type="url" placeholder="Googleスプレッドシートの “ウェブに公開” CSV URL" />
+  <button id="load" class="pill">読み込み</button>
+  <button id="share" class="pill" title="このCSVで開く専用リンクを作成">この設定で共有リンク</button>
+</div>
+<div id="status" class="status" aria-live="polite"><span class="dot" style="background:#ccc"></span><span>未読み込み</span></div>
+<div class="hint">※ Googleスプレッドシート → <b>ファイル ＞ 共有 ＞ ウェブに公開</b> → 形式「CSV」→ URLをここに貼付。1行目は見出し（例：<b>商品名, 棚番, 向き, 階層</b>）。</div>
+
+<!-- 2) 商品名で検索 → 棚番/向き/階層を表示 -->
+<div class="row" style="margin-top:12px">
+  <input id="q" type="search" placeholder="商品名で検索（例：ディズニーめじるしキーホルダー）" />
+  <span id="count" class="count">0件</span>
+  <button id="clear" class="pill">リセット</button>
+</div>
+
+<table id="tbl" hidden>
+  <thead><tr><th>商品名</th><th>棚番</th><th>向き</th><th>階層</th></tr></thead>
+  <tbody id="tbody"></tbody>
+</table>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+// ===== 設定（デフォルトCSV：あなたの公開CSV） =====
+const DEFAULT_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSBYIyA2FSZO6xFMYjXNwae-g689Re5ECvG80xdHlGkds_xTIuONUgeXQ5uIgOFQv5_WqZsxnFiSPaN/pub?output=csv';
+
+// ===== 正規化ユーティリティ =====
+const toHiragana = s => s.replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+const toZenkakuLess = s => s.normalize("NFKC");
+const norm = s => toHiragana(toZenkakuLess((s||"").toLowerCase()));
+const esc = s => String(s).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+function highlight(text, query){
+  if(!query) return esc(text);
+  const raw = String(text);
+  const nText = norm(raw), nQ = norm(query);
+  const i = nText.indexOf(nQ);
+  if(i < 0) return esc(raw);
+  return esc(raw.slice(0,i)) + '<mark>' + esc(raw.slice(i, i+query.length)) + '</mark>' + esc(raw.slice(i+query.length));
+}
+
+// ===== 要素 =====
+const el = id => document.getElementById(id);
+const csvUrl = el('csvUrl');
+const btnLoad = el('load');
+const btnShare = el('share');
+const q = el('q');
+const clearBtn = el('clear');
+const tbl = el('tbl');
+const tbody = el('tbody');
+const count = el('count');
+const statusBar = el('status');
+const toast = el('toast');
+
+// ===== データ状態 =====
+let headers = [];
+let rows = [];
+let productCol = '';
+let tanaCol = '';
+let mukiCol = '';
+let kaisoCol = '';
+let loading = false;
+
+// === 編集/閲覧リンク → CSV直リンクに自動変換（pub?output=csv はそのまま） ===
+function toCsvUrl(raw){
+  try{
+    const u = new URL(raw);
+    // 既に公開CSV（/d/e/... or output=csv）はそのまま
+    if (u.pathname.includes('/spreadsheets/d/e/') || /output=csv/i.test(u.search)) return raw;
+
+    // 通常の編集URL → export?format=csv に変換
+    const m = u.pathname.match(/\/spreadsheets\/d\/([^/]+)/);
+    const id = m && m[1];
+    const gid = (u.hash.match(/gid=(\d+)/)||[])[1] || (u.searchParams.get('gid')||'');
+    if (id) {
+      u.pathname = `/spreadsheets/d/${id}/export`;
+      u.search = '';
+      u.searchParams.set('format','csv');
+      if (gid) u.searchParams.set('gid', gid);
+      u.hash = '';
+      return u.toString();
+    }
+    return raw;
+  }catch{ return raw; }
+}
+
+// URLパラメータ処理（?csv=...） & 初期値セット
+const params = new URLSearchParams(location.search);
+if(params.get('csv')){
+  csvUrl.value = params.get('csv');
+}else{
+  csvUrl.value = DEFAULT_CSV; // 専用URLが無いときは既定を表示
+}
+
+btnLoad.onclick = fetchCSV;
+btnShare.onclick = () => {
+  if(!csvUrl.value) return showToast('CSVの公開URLを入力してください');
+  const url = new URL(location.href.split('?')[0]);
+  url.searchParams.set('csv', csvUrl.value);
+  navigator.clipboard.writeText(url.toString()).then(()=>showToast('共有リンクをコピーしました。QR化して使えます。'));
+};
+
+// Enterキーで読み込み（URL欄）
+csvUrl.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); fetchCSV(); }});
+
+q.addEventListener('input', render);
+clearBtn.onclick = ()=>{ q.value=''; render(); q.focus(); };
+
+function setStatus(type, text){
+  statusBar.className = 'status ' + (type||'');
+  const dot = statusBar.querySelector('.dot');
+  if(type==='load'){ dot.style.background='#1f6feb'; }
+  else if(type==='ok'){ dot.style.background='#2da44e'; }
+  else if(type==='err'){ dot.style.background='#d1242f'; }
+  else { dot.style.background='#ccc'; }
+  statusBar.querySelector('span:nth-child(2)').textContent = text || '';
+}
+
+function setLoadingState(is){
+  loading = is;
+  btnLoad.disabled = is;
+  btnShare.disabled = is;
+  csvUrl.disabled = is;
+  btnLoad.textContent = is ? '読み込み中…' : '読み込み';
+}
+
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>toast.classList.remove('show'), 2200);
+}
+
+async function fetchCSV(){
+  if(loading) return;
+  let url = (csvUrl.value||'').trim();
+  if(!/^https?:\/\//.test(url)) { showToast('CSVの公開URLを入力してください'); return; }
+  url = toCsvUrl(url); // ← 編集URLでもOKにする
+  try{
+    setLoadingState(true);
+    setStatus('load','CSVを取得しています…');
+    const u = new URL(url); u.searchParams.set('_t', Date.now()); // キャッシュ防止
+    const res = await fetch(u.toString(), {mode:'cors'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const text = await res.text();
+    const mat = parseCSV(text);
+    if(!mat.length) throw new Error('CSVが空です');
+    headers = mat[0].map(h=>h.trim());
+    rows = mat.slice(1).filter(r=>r.length && r.some(x=>String(x).trim()!==''));
+
+    const findCol = (likes) => headers.find(h => likes.some(l => norm(h).includes(norm(l)))) || '';
+    productCol = findCol(['商品名','品名','名前','product','title','name']);
+    tanaCol    = findCol(['棚番','棚','列','shelf','tana']);
+    mukiCol    = findCol(['向き','方向','向','orientation','muki']);
+    kaisoCol   = findCol(['階層','段','階','level','tier','kaiso']);
+
+    if(!productCol) throw new Error('「商品名」に相当する列が見つかりません（見出し例：商品名）。');
+
+    tbl.hidden = false;
+    render();
+    const now = new Date();
+    setStatus('ok', `読み込み完了（${now.toLocaleString()}）`);
+    showToast('✓ 読み込み完了');
+  }catch(err){
+    console.error(err);
+    setStatus('err', '読み込み失敗：' + err.message);
+    showToast('読み込みに失敗しました');
+  }finally{
+    setLoadingState(false);
+  }
+}
+
+function parseCSV(str){
+  const out=[]; let i=0, cur='', row=[], inQ=false;
+  const pushCell=()=>{ row.push(cur); cur=''; };
+  const pushRow=()=>{ out.push(row); row=[]; };
+  while(i<str.length){
+    const c=str[i];
+    if(inQ){
+      if(c==='"'){
+        if(str[i+1]==='"'){ cur+='"'; i++; } else { inQ=false; }
+      } else cur+=c;
+    } else {
+      if(c==='"') inQ=true;
+      else if(c===',') pushCell();
+      else if(c==='\\r'){}                 // ★ 改行はエスケープで判定
+      else if(c==='\\n'){ pushCell(); pushRow(); } // ★ 同上
+      else cur+=c;
+    }
+    i++;
+  }
+  if(cur!==''||row.length){ pushCell(); pushRow(); }
+  while(out.length && out[out.length-1].length===1 && out[out.length-1][0]==='') out.pop();
+  return out;
+}
+
+function render(){
+  if(!rows.length) return;
+  const query = q.value.trim();
+  const idxProduct = headers.indexOf(productCol);
+  const matches = rows.filter(r => {
+    if(!query) return true; // 未入力時は全件表示（必要なら false に変更可）
+    const v = r[idxProduct] ?? '';
+    return norm(String(v)).includes(norm(query));
+  });
+
+  count.textContent = matches.length + '件';
+
+  const iTana = headers.indexOf(tanaCol);
+  const iMuki = headers.indexOf(mukiCol);
+  const iKaiso = headers.indexOf(kaisoCol);
+
+  tbody.innerHTML = matches.map(r => {
+    const vName  = r[idxProduct] ?? '';
+    const vTana  = (iTana>=0? r[iTana] : '');
+    const vMuki  = (iMuki>=0? r[iMuki] : '');
+    const vKaiso = (iKaiso>=0? r[iKaiso]: '');
+    return `<tr>
+      <td>${highlight(vName, query)}</td>
+      <td>${esc(vTana)}</td>
+      <td>${esc(vMuki)}</td>
+      <td>${esc(vKaiso)}</td>
+    </tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
