@@ -181,8 +181,8 @@ function parseCSV(str){
     } else {
       if(c==='"') inQ=true;
       else if(c===',') pushCell();
-      else if(c==='\\r'){}                 // 改行はエスケープで判定
-      else if(c==='\\n'){ pushCell(); pushRow(); } // 同上
+      else if(c==='\r'){}                 // 改行はエスケープで判定
+      else if(c==='\n'){ pushCell(); pushRow(); } // 同上
       else cur+=c;
     }
     i++;
@@ -224,4 +224,3 @@ function render(){
 </script>
 </body>
 </html>
-
