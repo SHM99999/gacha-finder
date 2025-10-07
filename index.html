@@ -34,7 +34,7 @@
   <button id="share" class="pill" title="このCSVで開く専用リンクを作成">この設定で共有リンク</button>
 </div>
 <div id="status" class="status" aria-live="polite"><span class="dot" style="background:#ccc"></span><span>未読み込み</span></div>
-<div class="hint">※ Googleスプレッドシート → <b>ファイル ＞ 共有 ＞ ウェブに公開</b> → 形式「CSV」→ URLをここに貼付。1行目は見出し（例：<b>商品名, 棚番, 向き, 階層</b>）。Enterキーでも読み込みできます。</div>
+<div class="hint">※ Googleスプレッドシート → <b>ファイル ＞ 共有 ＞ ウェブに公開</b> → 形式「CSV」→ URLをここに貼付。シートの1行目は見出し（例：<b>商品名, 棚番, 向き, 階層</b>）。Enterキーでも読み込みできます。</div>
 
 <!-- 2) 商品名で検索 → 棚番/向き/階層を表示 -->
 <div class="row" style="margin-top:12px">
@@ -87,29 +87,6 @@ let mukiCol = '';
 let kaisoCol = '';
 let loading = false;
 
-// === 編集/閲覧リンク → CSV直リンクに自動変換（pub?output=csv はそのまま） ===
-function toCsvUrl(raw){
-  try{
-    const u = new URL(raw);
-    // 既に公開CSV（/d/e/... or output=csv）はそのまま
-    if (u.pathname.includes('/spreadsheets/d/e/') || /output=csv/i.test(u.search)) return raw;
-
-    // 通常の編集URL → export?format=csv に変換
-    const m = u.pathname.match(/\/spreadsheets\/d\/([^/]+)/);
-    const id = m && m[1];
-    const gid = (u.hash.match(/gid=(\d+)/)||[])[1] || (u.searchParams.get('gid')||'');
-    if (id) {
-      u.pathname = `/spreadsheets/d/${id}/export`;
-      u.search = '';
-      u.searchParams.set('format','csv');
-      if (gid) u.searchParams.set('gid', gid);
-      u.hash = '';
-      return u.toString();
-    }
-    return raw;
-  }catch{ return raw; }
-}
-
 // URLパラメータ処理（?csv=...）
 const params = new URLSearchParams(location.search);
 if(params.get('csv')){ csvUrl.value = params.get('csv'); fetchCSV(); }
@@ -155,13 +132,12 @@ function showToast(msg){
 
 async function fetchCSV(){
   if(loading) return;
-  let url = (csvUrl.value||'').trim();
+  const url = (csvUrl.value||'').trim();
   if(!/^https?:\/\//.test(url)) { showToast('CSVの公開URLを入力してください'); return; }
-  url = toCsvUrl(url); // ← 編集URLでもOKにする
   try{
     setLoadingState(true);
     setStatus('load','CSVを取得しています…');
-    const u = new URL(url); u.searchParams.set('_t', Date.now()); // キャッシュ防止
+    const u = new URL(url); u.searchParams.set('_t', Date.now());
     const res = await fetch(u.toString(), {mode:'cors'});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const text = await res.text();
@@ -205,8 +181,10 @@ function parseCSV(str){
     } else {
       if(c==='"') inQ=true;
       else if(c===',') pushCell();
-      else if(c==='\\r'){}                 // 改行はエスケープで判定
-      else if(c==='\\n'){ pushCell(); pushRow(); } // 同上
+      else if(c==='
+'){}
+      else if(c==='
+'){ pushCell(); pushRow(); }
       else cur+=c;
     }
     i++;
@@ -221,7 +199,7 @@ function render(){
   const query = q.value.trim();
   const idxProduct = headers.indexOf(productCol);
   const matches = rows.filter(r => {
-    if(!query) return true; // 未入力時は全件表示（必要なら false に変更可）
+    if(!query) return true; // 未入力時は全件表示
     const v = r[idxProduct] ?? '';
     return norm(String(v)).includes(norm(query));
   });
