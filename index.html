@@ -34,7 +34,7 @@
   <button id="share" class="pill" title="このCSVで開く専用リンクを作成">この設定で共有リンク</button>
 </div>
 <div id="status" class="status" aria-live="polite"><span class="dot" style="background:#ccc"></span><span>未読み込み</span></div>
-<div class="hint">※ Googleスプレッドシート → <b>ファイル ＞ 共有 ＞ ウェブに公開</b> → 形式「CSV」→ URLをここに貼付。1行目は見出し（例：<b>商品名, 棚番, 向き, 階層</b>）。</div>
+<div class="hint">※ Googleスプレッドシート → <b>ファイル ＞ 共有 ＞ ウェブに公開</b> → 形式「CSV」→ URLをここに貼付。1行目は見出し（例：<b>商品名, 棚番, 向き, 階層</b>）。Enterキーでも読み込みできます。</div>
 
 <!-- 2) 商品名で検索 → 棚番/向き/階層を表示 -->
 <div class="row" style="margin-top:12px">
@@ -51,9 +51,6 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
-// ===== 設定（デフォルトCSV：あなたの公開CSV） =====
-const DEFAULT_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSBYIyA2FSZO6xFMYjXNwae-g689Re5ECvG80xdHlGkds_xTIuONUgeXQ5uIgOFQv5_WqZsxnFiSPaN/pub?output=csv';
-
 // ===== 正規化ユーティリティ =====
 const toHiragana = s => s.replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
 const toZenkakuLess = s => s.normalize("NFKC");
@@ -113,13 +110,9 @@ function toCsvUrl(raw){
   }catch{ return raw; }
 }
 
-// URLパラメータ処理（?csv=...） & 初期値セット
+// URLパラメータ処理（?csv=...）
 const params = new URLSearchParams(location.search);
-if(params.get('csv')){
-  csvUrl.value = params.get('csv');
-}else{
-  csvUrl.value = DEFAULT_CSV; // 専用URLが無いときは既定を表示
-}
+if(params.get('csv')){ csvUrl.value = params.get('csv'); fetchCSV(); }
 
 btnLoad.onclick = fetchCSV;
 btnShare.onclick = () => {
@@ -212,8 +205,8 @@ function parseCSV(str){
     } else {
       if(c==='"') inQ=true;
       else if(c===',') pushCell();
-      else if(c==='\\r'){}                 // ★ 改行はエスケープで判定
-      else if(c==='\\n'){ pushCell(); pushRow(); } // ★ 同上
+      else if(c==='\\r'){}                 // 改行はエスケープで判定
+      else if(c==='\\n'){ pushCell(); pushRow(); } // 同上
       else cur+=c;
     }
     i++;
