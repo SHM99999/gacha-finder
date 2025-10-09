@@ -23,18 +23,23 @@
   .toast{position:fixed;right:16px;bottom:16px;background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;transform:translateY(8px);transition:.25s}
   .toast.show{opacity:1;transform:translateY(0)}
   @keyframes pulse{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
+.kiosk .staff-only{display:none!important}
+.gear{position:fixed;right:14px;top:14px;opacity:.25;cursor:pointer;font-size:18px;user-select:none}
+.kiosk .gear{opacity:.15}
+.gear:hover{opacity:.7}
 </style>
 <body>
 <h1>ガチャ検索（商品名 → 棚番 / 向き / 階層）</h1>
+<div class="gear staff-only" title="利用者画面へ (Alt+K)">⚙</div>
 
 <!-- 1) 公開CSVのURL（?csv=... 付きリンクで自動設定も可） -->
-<div class="row">
+<div class="row staff-only">
   <input id="csvUrl" type="url" placeholder="Googleスプレッドシートの “ウェブに公開” CSV URL" />
   <button id="load" class="pill">読み込み</button>
   <button id="share" class="pill" title="このCSVで開く専用リンクを作成">この設定で共有リンク</button>
 </div>
-<div id="status" class="status" aria-live="polite"><span class="dot" style="background:#ccc"></span><span>未読み込み</span></div>
-<div class="hint">※ Googleスプレッドシート → <b>ファイル ＞ 共有 ＞ ウェブに公開</b> → 形式「CSV」→ URLをここに貼付。シートの1行目は見出し（例：<b>商品名, 棚番, 向き, 階層</b>）。Enterキーでも読み込みできます。</div>
+<div id="status" class="status staff-only" aria-live="polite"><span class="dot" style="background:#ccc"></span><span>未読み込み</span></div>
+<div class="hint staff-only">※ Googleスプレッドシート → <b>ファイル ＞ 共有 ＞ ウェブに公開</b> → 形式「CSV」→ URLをここに貼付。1行目は見出し（例：<b>商品名, 棚番, 向き, 階層</b>）。Enterキーでも読み込みできます。</div>
 
 <!-- 2) 商品名で検索 → 棚番/向き/階層を表示 -->
 <div class="row" style="margin-top:12px">
@@ -89,6 +94,8 @@ let loading = false;
 
 // URLパラメータ処理（?csv=...）
 const params = new URLSearchParams(location.search);
+const isKiosk = params.get('kiosk') === '1' || params.get('mode') === 'customer';
+if(isKiosk){ document.body.classList.add('kiosk'); }
 if(params.get('csv')){ csvUrl.value = params.get('csv'); fetchCSV(); }
 
 btnLoad.onclick = fetchCSV;
@@ -103,6 +110,7 @@ btnShare.onclick = () => {
 csvUrl.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); fetchCSV(); }});
 
 q.addEventListener('input', render);
+q.setAttribute('autofocus','autofocus');
 clearBtn.onclick = ()=>{ q.value=''; render(); q.focus(); };
 
 function setStatus(type, text){
@@ -221,6 +229,14 @@ function render(){
     </tr>`;
   }).join('');
 }
+// ---- 画面モード切替：Alt+K でスタッフUIの表示/非表示 ----
+document.addEventListener('keydown', (e)=>{
+  if(e.altKey && (e.key==='k' || e.key==='K')){
+    document.body.classList.toggle('kiosk');
+    showToast(document.body.classList.contains('kiosk')? '利用者画面に切替' : 'スタッフ画面に切替');
+  }
+});
 </script>
 </body>
 </html>
+
