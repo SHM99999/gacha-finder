@@ -153,8 +153,10 @@ if(params.get('csv')){ csvUrl.value = params.get('csv'); fetchCSV(); }
 btnLoad.onclick = fetchCSV;
 btnShare.onclick = () => {
   if(!csvUrl.value) return showToast('CSVの公開URLを入力してください');
-  const url = new URL(location.href.split('?')[0]);
+  const url = new URL(location.href);
   url.searchParams.set('csv', csvUrl.value);
+  url.searchParams.set('kiosk', '1');
+  url.searchParams.set('mode', 'customer');
   navigator.clipboard.writeText(url.toString()).then(()=>showToast('共有リンクをコピーしました。QR化して使えます。'));
 };
 
