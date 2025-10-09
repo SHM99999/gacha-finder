@@ -34,11 +34,19 @@
   .map-section{margin-top:28px}
   .map-section h2{margin:0 0 12px;font-size:18px}
   .map-hint{font-size:12px;color:#666;margin-top:8px}
-  .store-map{border:1px solid #ddd;border-radius:12px;padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:12px;background:#fafafa}
-  .map-shelf{position:relative;padding:18px 8px;border-radius:10px;background:#fff;border:1px solid #ccc;text-align:center;font-size:14px;line-height:1.4;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .store-map{border:1px solid #ddd;border-radius:12px;padding:24px;display:flex;gap:24px;flex-wrap:wrap;justify-content:center;align-items:flex-start;background:#fafafa}
+  .map-block{display:grid;gap:10px}
+  .map-block--tall{grid-template-columns:repeat(2,minmax(64px,1fr));}
+  .map-block--medium{grid-template-columns:repeat(2,minmax(72px,1fr));}
+  .map-shelf{position:relative;padding:18px 8px;border-radius:10px;background:#fff;border:1px solid #ccc;text-align:center;font-size:14px;line-height:1.4;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.05);min-width:64px;min-height:60px;display:flex;flex-direction:column;justify-content:center;align-items:center}
   .map-shelf::after{content:attr(data-label);display:block;font-size:11px;color:#666;margin-top:4px}
   .map-shelf.active{border-color:#1f6feb;background:#e8f1ff;box-shadow:0 0 0 3px rgba(31,111,235,.15)}
+  .map-shelf.active::before{content:"";position:absolute;top:-8px;left:50%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;background:#d1242f;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.2)}
   .map-shelf .map-count{position:absolute;top:6px;right:6px;font-size:11px;background:#1f6feb;color:#fff;padding:2px 6px;border-radius:999px;min-width:20px;text-align:center}
+  .map-shelf--gbo{background:#3b3b3b;color:#fff;border-color:#3b3b3b}
+  .map-shelf--gbo.active{background:#e8f1ff;color:#0f2a57;border-color:#1f6feb}
+  .map-walkway{display:flex;align-items:center;justify-content:center;padding:8px 12px;border-radius:10px;background:linear-gradient(135deg,#f5f5f5,#e3e3e3);border:1px solid #d0d0d0;font-size:13px;writing-mode:vertical-rl;letter-spacing:4px;height:100%;min-height:360px;color:#555;align-self:stretch}
+  .map-side-label{display:flex;align-items:center;justify-content:center;font-size:13px;color:#444;writing-mode:vertical-rl;letter-spacing:4px;height:100%;min-height:300px;align-self:stretch}
 /* PINモーダル */
 .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:100}
 .modal.show{display:flex}
@@ -89,14 +97,50 @@
 <section class="map-section" aria-label="店内マップ">
   <h2>店内マップ</h2>
   <div id="storeMap" class="store-map">
-    <div class="map-shelf" data-shelf="A1" data-label="入口横">A1<span class="map-count" hidden>0</span></div>
-    <div class="map-shelf" data-shelf="A2" data-label="中央">A2<span class="map-count" hidden>0</span></div>
-    <div class="map-shelf" data-shelf="A3" data-label="奥側">A3<span class="map-count" hidden>0</span></div>
-    <div class="map-shelf" data-shelf="B1" data-label="入口横">B1<span class="map-count" hidden>0</span></div>
-    <div class="map-shelf" data-shelf="B2" data-label="中央">B2<span class="map-count" hidden>0</span></div>
-    <div class="map-shelf" data-shelf="B3" data-label="奥側">B3<span class="map-count" hidden>0</span></div>
+    <div class="map-block map-block--tall" aria-label="一般ガチャエリア">
+      <div class="map-shelf" data-shelf="2">2<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="11">11<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="3">3<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="12">12<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="4">4<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="13">13<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="5">5<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="14">14<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="6">6<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="15">15<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="7">7<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="16">16<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="8">8<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="17">17<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="9">9<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="18">18<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="10">10<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="19">19<span class="map-count" hidden>0</span></div>
+    </div>
+    <div class="map-walkway" aria-hidden="true">通路</div>
+    <div class="map-block map-block--medium" aria-label="ゴールドボックスエリア">
+      <div class="map-shelf map-shelf--gbo" data-shelf="GBO5">GBO5<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf map-shelf--gbo" data-shelf="GBO4">GBO4<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf map-shelf--gbo" data-shelf="GBO6">GBO6<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf map-shelf--gbo" data-shelf="GBO3">GBO3<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf map-shelf--gbo" data-shelf="GBO7">GBO7<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf map-shelf--gbo" data-shelf="GBO2">GBO2<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf map-shelf--gbo" data-shelf="GBO8">GBO8<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf map-shelf--gbo" data-shelf="GBO1">GBO1<span class="map-count" hidden>0</span></div>
+    </div>
+    <div class="map-block map-block--medium" aria-label="クレーンゲーム前列">
+      <div class="map-shelf" data-shelf="23">23<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="27">27<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="22">22<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="26">26<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="21">21<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="25">25<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="20">20<span class="map-count" hidden>0</span></div>
+      <div class="map-shelf" data-shelf="24">24<span class="map-count" hidden>0</span></div>
+    </div>
+    <div class="map-side-label" aria-hidden="true">クレーンゲームコーナー</div>
   </div>
-  <p class="map-hint">検索結果に該当する棚をハイライトし、件数バッジを表示します。棚の配置はHTMLの <code>data-shelf</code> を編集して調整できます。</p>
+  <p class="map-hint">検索結果に該当する棚番にマーカーを表示します。棚の配置はHTMLの <code>data-shelf</code> を編集して調整できます。</p>
 </section>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
