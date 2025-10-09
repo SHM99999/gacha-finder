@@ -1,4 +1,14 @@
-<!doctype html>
+document.addEventListener('keydown', (e)=>{
+  if(e.altKey && (e.key==='k' || e.key==='K')){
+    if(document.body.classList.contains('kiosk')){
+      requirePinThen(()=>{ document.body.classList.remove('kiosk'); showToast('スタッフ画面に切替'); });
+    } else {
+      document.body.classList.add('kiosk'); showToast('利用者画面に切替');
+    }
+  }
+});const params = new URLSearchParams(location.search);
+const isKiosk = params.get('kiosk') === '1' || params.get('mode') === 'customer';
+if(params.get('pin')){ ADMIN_PIN = params.get('pin'); } // URLでPIN上書き（例：?kiosk=1&pin=9999）<!doctype html>
 <html lang="ja">
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -27,10 +37,35 @@
 .gear{position:fixed;right:14px;top:14px;opacity:.25;cursor:pointer;font-size:18px;user-select:none}
 .kiosk .gear{opacity:.15}
 .gear:hover{opacity:.7}
+.kiosk .staff-only{display:none!important}
+.gear{position:fixed;right:14px;top:14px;opacity:.25;cursor:pointer;font-size:18px;user-select:none;z-index:50}
+.kiosk .gear{opacity:.15}
+.gear:hover{opacity:.7}
+/* PINモーダル */
+.modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:100}
+.modal.show{display:flex}
+.modal .box{background:#fff;border-radius:12px;padding:18px 16px;min-width:280px;max-width:90vw;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.modal h3{margin:0 0 8px;font-size:16px}
+.modal .row{display:flex;gap:8px;margin-top:10px}
+.modal input{flex:1;padding:10px 12px;border:1px solid #ccc;border-radius:8px;font-size:16px}
+.modal button{padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer}
+.modal .error{color:#c00;font-size:12px;margin-top:6px;min-height:16px}
 </style>
 <body>
 <h1>ガチャ検索（商品名 → 棚番 / 向き / 階層）</h1>
-<div class="gear staff-only" title="利用者画面へ (Alt+K)">⚙</div>
+<div id="gear" class="gear" title="スタッフ画面へ（Alt+K）">⚙</div>
+<!-- PIN モーダル -->
+<div id="pinModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+  <div class="box">
+    <h3 id="pinTitle">スタッフ用PINを入力</h3>
+    <div class="row">
+      <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN" />
+      <button id="pinOk">OK</button>
+      <button id="pinCancel">キャンセル</button>
+    </div>
+    <div id="pinErr" class="error"></div>
+  </div>
+</div>
 
 <!-- 1) 公開CSVのURL（?csv=... 付きリンクで自動設定も可） -->
 <div class="row staff-only">
@@ -92,6 +127,9 @@ let mukiCol = '';
 let kaisoCol = '';
 let loading = false;
 
+// 設定：スタッフPIN（デフォルト・URLで上書き可）
+let ADMIN_PIN = '1234'; // ★必要に応じて変更
+
 // URLパラメータ処理（?csv=...）
 const params = new URLSearchParams(location.search);
 const isKiosk = params.get('kiosk') === '1' || params.get('mode') === 'customer';
@@ -111,6 +149,54 @@ csvUrl.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(
 
 q.addEventListener('input', render);
 q.setAttribute('autofocus','autofocus');
+
+// PINモーダル制御
+const pinModal = document.getElementById('pinModal');
+const pinInput = document.getElementById('pinInput');
+const pinOk = document.getElementById('pinOk');
+const pinCancel = document.getElementById('pinCancel');
+const pinErr = document.getElementById('pinErr');
+function openPin(){ pinErr.textContent=''; pinInput.value=''; pinModal.classList.add('show'); setTimeout(()=>pinInput.focus(), 50); }
+function closePin(){ pinModal.classList.remove('show'); }
+function requirePinThen(next){
+  openPin();
+  const onOK = () => {
+    if(pinInput.value===ADMIN_PIN){
+      closePin();
+      next && next();
+    } else {
+      pinErr.textContent = 'PINが違います';
+      pinInput.select();
+    }
+  };
+  pinOk.onclick = onOK;
+  pinCancel.onclick = ()=>{ closePin(); };
+  pinInput.onkeydown = (e)=>{ if(e.key==='Enter') onOK(); if(e.key==='Escape') closePin(); };
+}
+
+// ギアクリック/Alt+K でスタッフ画面へ（kiosk→staff はPIN必須）
+const gear = document.getElementById('gear');
+function toggleModeWithPin(){
+  const toKiosk = !document.body.classList.contains('kiosk');
+  if(toKiosk){
+    document.body.classList.add('kiosk');
+    showToast('利用者画面に切替');
+  }else{
+    // kiosk→staff はPIN必須
+    requirePinThen(()=>{
+      document.body.classList.remove('kiosk');
+      showToast('スタッフ画面に切替');
+    });
+  }
+}
+gear.addEventListener('click', (e)=>{
+  if(document.body.classList.contains('kiosk')){
+    // kiosk時はPIN要求
+    requirePinThen(()=>{ document.body.classList.remove('kiosk'); showToast('スタッフ画面に切替'); });
+  } else {
+    document.body.classList.add('kiosk'); showToast('利用者画面に切替');
+  }
+});
 clearBtn.onclick = ()=>{ q.value=''; render(); q.focus(); };
 
 function setStatus(type, text){
@@ -239,4 +325,5 @@ document.addEventListener('keydown', (e)=>{
 </script>
 </body>
 </html>
+
 
