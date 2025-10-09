@@ -1,14 +1,4 @@
-document.addEventListener('keydown', (e)=>{
-  if(e.altKey && (e.key==='k' || e.key==='K')){
-    if(document.body.classList.contains('kiosk')){
-      requirePinThen(()=>{ document.body.classList.remove('kiosk'); showToast('スタッフ画面に切替'); });
-    } else {
-      document.body.classList.add('kiosk'); showToast('利用者画面に切替');
-    }
-  }
-});const params = new URLSearchParams(location.search);
-const isKiosk = params.get('kiosk') === '1' || params.get('mode') === 'customer';
-if(params.get('pin')){ ADMIN_PIN = params.get('pin'); } // URLでPIN上書き（例：?kiosk=1&pin=9999）<!doctype html>
+<!doctype html>
 <html lang="ja">
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -33,14 +23,22 @@ if(params.get('pin')){ ADMIN_PIN = params.get('pin'); } // URLでPIN上書き（
   .toast{position:fixed;right:16px;bottom:16px;background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;transform:translateY(8px);transition:.25s}
   .toast.show{opacity:1;transform:translateY(0)}
   @keyframes pulse{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
-.kiosk .staff-only{display:none!important}
-.gear{position:fixed;right:14px;top:14px;opacity:.25;cursor:pointer;font-size:18px;user-select:none}
-.kiosk .gear{opacity:.15}
-.gear:hover{opacity:.7}
-.kiosk .staff-only{display:none!important}
-.gear{position:fixed;right:14px;top:14px;opacity:.25;cursor:pointer;font-size:18px;user-select:none;z-index:50}
-.kiosk .gear{opacity:.15}
-.gear:hover{opacity:.7}
+  .kiosk .staff-only{display:none!important}
+  .gear{position:fixed;right:14px;top:14px;opacity:.25;cursor:pointer;font-size:18px;user-select:none}
+  .kiosk .gear{opacity:.15}
+  .gear:hover{opacity:.7}
+  .kiosk .staff-only{display:none!important}
+  .gear{position:fixed;right:14px;top:14px;opacity:.25;cursor:pointer;font-size:18px;user-select:none;z-index:50}
+  .kiosk .gear{opacity:.15}
+  .gear:hover{opacity:.7}
+  .map-section{margin-top:28px}
+  .map-section h2{margin:0 0 12px;font-size:18px}
+  .map-hint{font-size:12px;color:#666;margin-top:8px}
+  .store-map{border:1px solid #ddd;border-radius:12px;padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:12px;background:#fafafa}
+  .map-shelf{position:relative;padding:18px 8px;border-radius:10px;background:#fff;border:1px solid #ccc;text-align:center;font-size:14px;line-height:1.4;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .map-shelf::after{content:attr(data-label);display:block;font-size:11px;color:#666;margin-top:4px}
+  .map-shelf.active{border-color:#1f6feb;background:#e8f1ff;box-shadow:0 0 0 3px rgba(31,111,235,.15)}
+  .map-shelf .map-count{position:absolute;top:6px;right:6px;font-size:11px;background:#1f6feb;color:#fff;padding:2px 6px;border-radius:999px;min-width:20px;text-align:center}
 /* PINモーダル */
 .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:100}
 .modal.show{display:flex}
@@ -88,6 +86,19 @@ if(params.get('pin')){ ADMIN_PIN = params.get('pin'); } // URLでPIN上書き（
   <tbody id="tbody"></tbody>
 </table>
 
+<section class="map-section" aria-label="店内マップ">
+  <h2>店内マップ</h2>
+  <div id="storeMap" class="store-map">
+    <div class="map-shelf" data-shelf="A1" data-label="入口横">A1<span class="map-count" hidden>0</span></div>
+    <div class="map-shelf" data-shelf="A2" data-label="中央">A2<span class="map-count" hidden>0</span></div>
+    <div class="map-shelf" data-shelf="A3" data-label="奥側">A3<span class="map-count" hidden>0</span></div>
+    <div class="map-shelf" data-shelf="B1" data-label="入口横">B1<span class="map-count" hidden>0</span></div>
+    <div class="map-shelf" data-shelf="B2" data-label="中央">B2<span class="map-count" hidden>0</span></div>
+    <div class="map-shelf" data-shelf="B3" data-label="奥側">B3<span class="map-count" hidden>0</span></div>
+  </div>
+  <p class="map-hint">検索結果に該当する棚をハイライトし、件数バッジを表示します。棚の配置はHTMLの <code>data-shelf</code> を編集して調整できます。</p>
+</section>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -117,6 +128,8 @@ const tbody = el('tbody');
 const count = el('count');
 const statusBar = el('status');
 const toast = el('toast');
+const storeMap = el('storeMap');
+const mapShelves = storeMap ? Array.from(storeMap.querySelectorAll('[data-shelf]')) : [];
 
 // ===== データ状態 =====
 let headers = [];
@@ -132,6 +145,7 @@ let ADMIN_PIN = '1234'; // ★必要に応じて変更
 
 // URLパラメータ処理（?csv=...）
 const params = new URLSearchParams(location.search);
+if(params.get('pin')){ ADMIN_PIN = params.get('pin'); } // URLでPIN上書き（例：?kiosk=1&pin=9999）
 const isKiosk = params.get('kiosk') === '1' || params.get('mode') === 'customer';
 if(isKiosk){ document.body.classList.add('kiosk'); }
 if(params.get('csv')){ csvUrl.value = params.get('csv'); fetchCSV(); }
@@ -176,19 +190,6 @@ function requirePinThen(next){
 
 // ギアクリック/Alt+K でスタッフ画面へ（kiosk→staff はPIN必須）
 const gear = document.getElementById('gear');
-function toggleModeWithPin(){
-  const toKiosk = !document.body.classList.contains('kiosk');
-  if(toKiosk){
-    document.body.classList.add('kiosk');
-    showToast('利用者画面に切替');
-  }else{
-    // kiosk→staff はPIN必須
-    requirePinThen(()=>{
-      document.body.classList.remove('kiosk');
-      showToast('スタッフ画面に切替');
-    });
-  }
-}
 gear.addEventListener('click', (e)=>{
   if(document.body.classList.contains('kiosk')){
     // kiosk時はPIN要求
@@ -198,6 +199,80 @@ gear.addEventListener('click', (e)=>{
   }
 });
 clearBtn.onclick = ()=>{ q.value=''; render(); q.focus(); };
+
+function normalizeShelf(v){
+  return norm(String(v||'')).replace(/\s+/g,'');
+}
+
+function updateMapHighlight(matches){
+  if(!mapShelves.length) return;
+  const counts = new Map();
+  const idxTana = headers.indexOf(tanaCol);
+  matches.forEach(row=>{
+    const shelf = normalizeShelf(idxTana >= 0 ? row[idxTana] : '');
+    if(!shelf) return;
+    counts.set(shelf, (counts.get(shelf)||0)+1);
+  });
+  lastCounts = counts;
+  mapShelves.forEach(node=>{
+    const shelf = normalizeShelf(node.dataset.shelf||'');
+    const count = counts.get(shelf)||0;
+    node.classList.toggle('active', count>0);
+    const badge = node.querySelector('.map-count');
+    if(badge){
+      badge.textContent = count;
+      badge.hidden = count===0;
+    }
+  });
+}
+
+let hoverShelf = '';
+let lastCounts = new Map();
+tbody.addEventListener('mouseover', (e)=>{
+  const tr = e.target.closest('tr');
+  if(!tr) return;
+  const shelfCell = tr.children[1];
+  if(!shelfCell) return;
+  hoverShelf = normalizeShelf(shelfCell.textContent);
+  updateMapHighlightForHover();
+});
+tbody.addEventListener('focusin', (e)=>{
+  const tr = e.target.closest('tr');
+  if(!tr) return;
+  const shelfCell = tr.children[1];
+  if(!shelfCell) return;
+  hoverShelf = normalizeShelf(shelfCell.textContent);
+  updateMapHighlightForHover();
+});
+tbody.addEventListener('mouseleave', ()=>{ hoverShelf=''; updateMapHighlightForHover(); });
+tbody.addEventListener('focusout', (e)=>{
+  if(!tbody.contains(document.activeElement)){ hoverShelf=''; updateMapHighlightForHover(); }
+});
+
+function updateMapHighlightForHover(){
+  if(!mapShelves.length) return;
+  if(!hoverShelf){
+    updateMapHighlight(lastMatches);
+    return;
+  }
+  mapShelves.forEach(node=>{
+    const shelf = normalizeShelf(node.dataset.shelf||'');
+    const isActive = shelf === hoverShelf;
+    node.classList.toggle('active', isActive);
+    const badge = node.querySelector('.map-count');
+    if(badge){
+      if(isActive){
+        const count = lastCounts.get(shelf) || 0;
+        badge.textContent = count || 1;
+        badge.hidden = false;
+      }else{
+        badge.hidden = true;
+      }
+    }
+  });
+}
+
+let lastMatches = [];
 
 function setStatus(type, text){
   statusBar.className = 'status ' + (type||'');
@@ -297,6 +372,7 @@ function render(){
   });
 
   count.textContent = matches.length + '件';
+  lastMatches = matches;
 
   const iTana = headers.indexOf(tanaCol);
   const iMuki = headers.indexOf(mukiCol);
@@ -314,12 +390,23 @@ function render(){
       <td>${esc(vKaiso)}</td>
     </tr>`;
   }).join('');
+
+  updateMapHighlight(matches);
 }
 // ---- 画面モード切替：Alt+K でスタッフUIの表示/非表示 ----
 document.addEventListener('keydown', (e)=>{
   if(e.altKey && (e.key==='k' || e.key==='K')){
-    document.body.classList.toggle('kiosk');
-    showToast(document.body.classList.contains('kiosk')? '利用者画面に切替' : 'スタッフ画面に切替');
+    e.preventDefault();
+    const toKiosk = !document.body.classList.contains('kiosk');
+    if(toKiosk){
+      document.body.classList.add('kiosk');
+      showToast('利用者画面に切替');
+    }else{
+      requirePinThen(()=>{
+        document.body.classList.remove('kiosk');
+        showToast('スタッフ画面に切替');
+      });
+    }
   }
 });
 </script>
