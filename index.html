@@ -1,4 +1,14 @@
-<!doctype html>
+document.addEventListener('keydown', (e)=>{
+  if(e.altKey && (e.key==='k' || e.key==='K')){
+    if(document.body.classList.contains('kiosk')){
+      requirePinThen(()=>{ document.body.classList.remove('kiosk'); showToast('スタッフ画面に切替'); });
+    } else {
+      document.body.classList.add('kiosk'); showToast('利用者画面に切替');
+    }
+  }
+});const params = new URLSearchParams(location.search);
+const isKiosk = params.get('kiosk') === '1' || params.get('mode') === 'customer';
+if(params.get('pin')){ ADMIN_PIN = params.get('pin'); } // URLでPIN上書き（例：?kiosk=1&pin=9999）<!doctype html>
 <html lang="ja">
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -22,46 +32,28 @@
   .status.err  .dot{background:#d1242f}
   .toast{position:fixed;right:16px;bottom:16px;background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;transform:translateY(8px);transition:.25s}
   .toast.show{opacity:1;transform:translateY(0)}
-  .kiosk .staff-only{display:none!important}
-  .gear{position:fixed;right:14px;top:14px;opacity:.25;cursor:pointer;font-size:18px;user-select:none;z-index:50}
-  .kiosk .gear{opacity:.15}
-  .gear:hover{opacity:.7}
-  /* PINモーダル */
-  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:100}
-  .modal.show{display:flex}
-  .modal .box{background:#fff;border-radius:12px;padding:18px 16px;min-width:280px;max-width:90vw;box-shadow:0 10px 30px rgba(0,0,0,.25)}
-  .modal h3{margin:0 0 8px;font-size:16px}
-  .modal .row{display:flex;gap:8px;margin-top:10px}
-  .modal input{flex:1;padding:10px 12px;border:1px solid #ccc;border-radius:8px;font-size:16px}
-  .modal button{padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer}
-  .modal .error{color:#c00;font-size:12px;margin-top:6px;min-height:16px}
   @keyframes pulse{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
+.kiosk .staff-only{display:none!important}
+.gear{position:fixed;right:14px;top:14px;opacity:.25;cursor:pointer;font-size:18px;user-select:none}
+.kiosk .gear{opacity:.15}
+.gear:hover{opacity:.7}
+.kiosk .staff-only{display:none!important}
+.gear{position:fixed;right:14px;top:14px;opacity:.25;cursor:pointer;font-size:18px;user-select:none;z-index:50}
+.kiosk .gear{opacity:.15}
+.gear:hover{opacity:.7}
+/* PINモーダル */
+.modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:100}
+.modal.show{display:flex}
+.modal .box{background:#fff;border-radius:12px;padding:18px 16px;min-width:280px;max-width:90vw;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.modal h3{margin:0 0 8px;font-size:16px}
+.modal .row{display:flex;gap:8px;margin-top:10px}
+.modal input{flex:1;padding:10px 12px;border:1px solid #ccc;border-radius:8px;font-size:16px}
+.modal button{padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer}
+.modal .error{color:#c00;font-size:12px;margin-top:6px;min-height:16px}
 </style>
 <body>
 <h1>ガチャ検索（商品名 → 棚番 / 向き / 階層）</h1>
 <div id="gear" class="gear" title="スタッフ画面へ（Alt+K）">⚙</div>
-
-<!-- スタッフUI（利用者画面では非表示） -->
-<div class="row staff-only">
-  <input id="csvUrl" type="url" placeholder="Googleスプレッドシートの “ウェブに公開” CSV URL" />
-  <button id="load" class="pill">読み込み</button>
-  <button id="share" class="pill" title="このCSVで開く専用リンクを作成">この設定で共有リンク</button>
-</div>
-<div id="status" class="status staff-only" aria-live="polite"><span class="dot" style="background:#ccc"></span><span>未読み込み</span></div>
-<div class="hint staff-only">※ Googleスプレッドシート → <b>ファイル ＞ 共有 ＞ ウェブに公開</b> → 形式「CSV」。1行目は見出し（例：<b>商品名, 棚番, 向き, 階層</b>）。Enterキーでも読み込みできます。</div>
-
-<!-- 利用者UI -->
-<div class="row" style="margin-top:12px">
-  <input id="q" type="search" placeholder="商品名で検索（例：ディズニーめじるしキーホルダー）" autofocus />
-  <span id="count" class="count">0件</span>
-  <button id="clear" class="pill">リセット</button>
-</div>
-
-<table id="tbl" hidden>
-  <thead><tr><th>商品名</th><th>棚番</th><th>向き</th><th>階層</th></tr></thead>
-  <tbody id="tbody"></tbody>
-</table>
-
 <!-- PIN モーダル -->
 <div id="pinModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
   <div class="box">
@@ -75,12 +67,30 @@
   </div>
 </div>
 
+<!-- 1) 公開CSVのURL（?csv=... 付きリンクで自動設定も可） -->
+<div class="row staff-only">
+  <input id="csvUrl" type="url" placeholder="Googleスプレッドシートの “ウェブに公開” CSV URL" />
+  <button id="load" class="pill">読み込み</button>
+  <button id="share" class="pill" title="このCSVで開く専用リンクを作成">この設定で共有リンク</button>
+</div>
+<div id="status" class="status staff-only" aria-live="polite"><span class="dot" style="background:#ccc"></span><span>未読み込み</span></div>
+<div class="hint staff-only">※ Googleスプレッドシート → <b>ファイル ＞ 共有 ＞ ウェブに公開</b> → 形式「CSV」→ URLをここに貼付。1行目は見出し（例：<b>商品名, 棚番, 向き, 階層</b>）。Enterキーでも読み込みできます。</div>
+
+<!-- 2) 商品名で検索 → 棚番/向き/階層を表示 -->
+<div class="row" style="margin-top:12px">
+  <input id="q" type="search" placeholder="商品名で検索（例：ディズニーめじるしキーホルダー）" />
+  <span id="count" class="count">0件</span>
+  <button id="clear" class="pill">リセット</button>
+</div>
+
+<table id="tbl" hidden>
+  <thead><tr><th>商品名</th><th>棚番</th><th>向き</th><th>階層</th></tr></thead>
+  <tbody id="tbody"></tbody>
+</table>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
-// ===== 設定 =====
-let ADMIN_PIN = '1234'; // ★必要に応じて変更
-
 // ===== 正規化ユーティリティ =====
 const toHiragana = s => s.replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
 const toZenkakuLess = s => s.normalize("NFKC");
@@ -107,12 +117,6 @@ const tbody = el('tbody');
 const count = el('count');
 const statusBar = el('status');
 const toast = el('toast');
-const pinModal = document.getElementById('pinModal');
-const pinInput = document.getElementById('pinInput');
-const pinOk = document.getElementById('pinOk');
-const pinCancel = document.getElementById('pinCancel');
-const pinErr = document.getElementById('pinErr');
-const gear = document.getElementById('gear');
 
 // ===== データ状態 =====
 let headers = [];
@@ -123,79 +127,96 @@ let mukiCol = '';
 let kaisoCol = '';
 let loading = false;
 
-// === URLパラメータ ===
+// 設定：スタッフPIN（デフォルト・URLで上書き可）
+let ADMIN_PIN = '1234'; // ★必要に応じて変更
+
+// URLパラメータ処理（?csv=...）
 const params = new URLSearchParams(location.search);
 const isKiosk = params.get('kiosk') === '1' || params.get('mode') === 'customer';
-if (params.get('pin')) ADMIN_PIN = params.get('pin');
-if (isKiosk) document.body.classList.add('kiosk');
-if (params.get('csv')){ csvUrl.value = params.get('csv'); fetchCSV(); }
+if(isKiosk){ document.body.classList.add('kiosk'); }
+if(params.get('csv')){ csvUrl.value = params.get('csv'); fetchCSV(); }
 
-// === クリック等 ===
-btnLoad && (btnLoad.onclick = fetchCSV);
-btnShare && (btnShare.onclick = () => {
+btnLoad.onclick = fetchCSV;
+btnShare.onclick = () => {
   if(!csvUrl.value) return showToast('CSVの公開URLを入力してください');
   const url = new URL(location.href.split('?')[0]);
   url.searchParams.set('csv', csvUrl.value);
-  if (document.body.classList.contains('kiosk')) url.searchParams.set('kiosk','1');
   navigator.clipboard.writeText(url.toString()).then(()=>showToast('共有リンクをコピーしました。QR化して使えます。'));
-});
-csvUrl && csvUrl.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); fetchCSV(); }});
-q.addEventListener('input', render);
-clearBtn.onclick = ()=>{ q.value=''; render(); q.focus(); };
+};
 
-// === PINモーダル ===
+// Enterキーで読み込み（URL欄）
+csvUrl.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); fetchCSV(); }});
+
+q.addEventListener('input', render);
+q.setAttribute('autofocus','autofocus');
+
+// PINモーダル制御
+const pinModal = document.getElementById('pinModal');
+const pinInput = document.getElementById('pinInput');
+const pinOk = document.getElementById('pinOk');
+const pinCancel = document.getElementById('pinCancel');
+const pinErr = document.getElementById('pinErr');
 function openPin(){ pinErr.textContent=''; pinInput.value=''; pinModal.classList.add('show'); setTimeout(()=>pinInput.focus(), 50); }
 function closePin(){ pinModal.classList.remove('show'); }
 function requirePinThen(next){
   openPin();
   const onOK = () => {
-    if(pinInput.value===ADMIN_PIN){ closePin(); next && next(); }
-    else { pinErr.textContent = 'PINが違います'; pinInput.select(); }
+    if(pinInput.value===ADMIN_PIN){
+      closePin();
+      next && next();
+    } else {
+      pinErr.textContent = 'PINが違います';
+      pinInput.select();
+    }
   };
   pinOk.onclick = onOK;
   pinCancel.onclick = ()=>{ closePin(); };
   pinInput.onkeydown = (e)=>{ if(e.key==='Enter') onOK(); if(e.key==='Escape') closePin(); };
 }
 
-// ギアで切替、Alt+K でも切替（kiosk→staff はPIN必須）
-gear.addEventListener('click', ()=>{
+// ギアクリック/Alt+K でスタッフ画面へ（kiosk→staff はPIN必須）
+const gear = document.getElementById('gear');
+function toggleModeWithPin(){
+  const toKiosk = !document.body.classList.contains('kiosk');
+  if(toKiosk){
+    document.body.classList.add('kiosk');
+    showToast('利用者画面に切替');
+  }else{
+    // kiosk→staff はPIN必須
+    requirePinThen(()=>{
+      document.body.classList.remove('kiosk');
+      showToast('スタッフ画面に切替');
+    });
+  }
+}
+gear.addEventListener('click', (e)=>{
   if(document.body.classList.contains('kiosk')){
+    // kiosk時はPIN要求
     requirePinThen(()=>{ document.body.classList.remove('kiosk'); showToast('スタッフ画面に切替'); });
   } else {
     document.body.classList.add('kiosk'); showToast('利用者画面に切替');
   }
 });
-document.addEventListener('keydown', (e)=>{
-  if(e.altKey && (e.key==='k' || e.key==='K')){
-    if(document.body.classList.contains('kiosk')){
-      requirePinThen(()=>{ document.body.classList.remove('kiosk'); showToast('スタッフ画面に切替'); });
-    } else {
-      document.body.classList.add('kiosk'); showToast('利用者画面に切替');
-    }
-  }
-});
+clearBtn.onclick = ()=>{ q.value=''; render(); q.focus(); };
 
-// === ステータス/トースト ===
 function setStatus(type, text){
-  if(!statusBar) return;
   statusBar.className = 'status ' + (type||'');
   const dot = statusBar.querySelector('.dot');
-  if(dot){
-    if(type==='load'){ dot.style.background='#1f6feb'; }
-    else if(type==='ok'){ dot.style.background='#2da44e'; }
-    else if(type==='err'){ dot.style.background='#d1242f'; }
-    else { dot.style.background='#ccc'; }
-  }
-  const span = statusBar.querySelector('span:nth-child(2)');
-  if(span) span.textContent = text || '';
+  if(type==='load'){ dot.style.background='#1f6feb'; }
+  else if(type==='ok'){ dot.style.background='#2da44e'; }
+  else if(type==='err'){ dot.style.background='#d1242f'; }
+  else { dot.style.background='#ccc'; }
+  statusBar.querySelector('span:nth-child(2)').textContent = text || '';
 }
+
 function setLoadingState(is){
   loading = is;
-  if(btnLoad) btnLoad.disabled = is;
-  if(btnShare) btnShare.disabled = is;
-  if(csvUrl) csvUrl.disabled = is;
-  if(btnLoad) btnLoad.textContent = is ? '読み込み中…' : '読み込み';
+  btnLoad.disabled = is;
+  btnShare.disabled = is;
+  csvUrl.disabled = is;
+  btnLoad.textContent = is ? '読み込み中…' : '読み込み';
 }
+
 function showToast(msg){
   toast.textContent = msg;
   toast.classList.add('show');
@@ -203,31 +224,10 @@ function showToast(msg){
   showToast._t = setTimeout(()=>toast.classList.remove('show'), 2200);
 }
 
-// === 取得・描画 ===
-function toCsvUrl(raw){
-  try{
-    const u = new URL(raw);
-    if (u.pathname.includes('/spreadsheets/d/e/') || /output=csv/i.test(u.search)) return raw;
-    const m = u.pathname.match(/\/spreadsheets\/d\/([^/]+)/);
-    const id = m && m[1];
-    const gid = (u.hash.match(/gid=(\d+)/)||[])[1] || (u.searchParams.get('gid')||'');
-    if (id) {
-      u.pathname = `/spreadsheets/d/${id}/export`;
-      u.search = '';
-      u.searchParams.set('format','csv');
-      if (gid) u.searchParams.set('gid', gid);
-      u.hash = '';
-      return u.toString();
-    }
-    return raw;
-  }catch{ return raw; }
-}
-
 async function fetchCSV(){
   if(loading) return;
-  let url = (csvUrl.value||'').trim();
+  const url = (csvUrl.value||'').trim();
   if(!/^https?:\/\//.test(url)) { showToast('CSVの公開URLを入力してください'); return; }
-  url = toCsvUrl(url);
   try{
     setLoadingState(true);
     setStatus('load','CSVを取得しています…');
@@ -275,8 +275,8 @@ function parseCSV(str){
     } else {
       if(c==='"') inQ=true;
       else if(c===',') pushCell();
-      else if(c==='\\r'){}
-      else if(c==='\\n'){ pushCell(); pushRow(); }
+      else if(c==='\r'){}                 // 改行はエスケープで判定
+      else if(c==='\n'){ pushCell(); pushRow(); } // 同上
       else cur+=c;
     }
     i++;
@@ -291,7 +291,7 @@ function render(){
   const query = q.value.trim();
   const idxProduct = headers.indexOf(productCol);
   const matches = rows.filter(r => {
-    if(!query) return true;
+    if(!query) return true; // 未入力時は全件表示
     const v = r[idxProduct] ?? '';
     return norm(String(v)).includes(norm(query));
   });
@@ -315,6 +315,13 @@ function render(){
     </tr>`;
   }).join('');
 }
+// ---- 画面モード切替：Alt+K でスタッフUIの表示/非表示 ----
+document.addEventListener('keydown', (e)=>{
+  if(e.altKey && (e.key==='k' || e.key==='K')){
+    document.body.classList.toggle('kiosk');
+    showToast(document.body.classList.contains('kiosk')? '利用者画面に切替' : 'スタッフ画面に切替');
+  }
+});
 </script>
 </body>
 </html>
